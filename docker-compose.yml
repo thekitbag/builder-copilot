@@ -1,0 +1,6 @@
+services:
+  builder-copilot:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${BUILDER_COPILOT_PORT:-5174}:80"
