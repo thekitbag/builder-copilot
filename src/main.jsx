@@ -111,6 +111,9 @@ const steps = [
   'Finding options for Tuesday...',
 ];
 
+const VOICE_REVEAL_DELAY = 3200;
+const RESULT_DELAY = 8200;
+
 function App() {
   const [screen, setScreen] = useState('home');
   const [typed, setTyped] = useState('');
@@ -127,15 +130,15 @@ function App() {
     const listenTimer = window.setTimeout(() => {
       setTyped(demoPhrase);
       setListening(false);
-    }, 1100);
+    }, VOICE_REVEAL_DELAY);
 
     const resultTimer = window.setTimeout(() => {
       setScreen('memory');
-    }, 5200);
+    }, RESULT_DELAY);
 
     const interval = window.setInterval(() => {
       setLoadingStep((current) => Math.min(current + 1, steps.length - 1));
-    }, 1050);
+    }, 1600);
 
     return () => {
       window.clearTimeout(listenTimer);
