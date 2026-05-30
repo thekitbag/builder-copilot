@@ -112,38 +112,25 @@ const steps = [
 ];
 
 const VOICE_REVEAL_DELAY = 3200;
-const RESULT_DELAY = 8200;
 
 function App() {
   const [screen, setScreen] = useState('home');
   const [typed, setTyped] = useState('');
   const [listening, setListening] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
   const [toast, setToast] = useState('');
 
   useEffect(() => {
     if (screen !== 'listen') return;
     setListening(true);
     setTyped('');
-    setLoadingStep(0);
 
     const listenTimer = window.setTimeout(() => {
       setTyped(demoPhrase);
       setListening(false);
     }, VOICE_REVEAL_DELAY);
 
-    const resultTimer = window.setTimeout(() => {
-      setScreen('memory');
-    }, RESULT_DELAY);
-
-    const interval = window.setInterval(() => {
-      setLoadingStep((current) => Math.min(current + 1, steps.length - 1));
-    }, 1600);
-
     return () => {
       window.clearTimeout(listenTimer);
-      window.clearTimeout(resultTimer);
-      window.clearInterval(interval);
     };
   }, [screen]);
 
@@ -166,7 +153,7 @@ function App() {
         {screen !== 'home' && <TopBar onBack={() => navigate(previousScreen(screen))} onHome={() => navigate('home')} />}
 
         {screen === 'home' && <HomeScreen typed={typed} setTyped={setTyped} onStart={() => navigate('listen')} />}
-        {screen === 'listen' && <VoiceScreen typed={typed} listening={listening} loadingStep={loadingStep} />}
+        {screen === 'listen' && <VoiceScreen typed={typed} listening={listening} onConfirm={() => navigate('memory')} />}
         {screen === 'memory' && <MemoryScreen onNext={() => navigate('suppliers')} />}
         {screen === 'suppliers' && <SuppliersScreen onNext={() => navigate('order')} showToast={showToast} />}
         {screen === 'order' && <OrderScreen showToast={showToast} />}
@@ -282,7 +269,7 @@ function HomeScreen({ typed, setTyped, onStart }) {
   );
 }
 
-function VoiceScreen({ typed, listening, loadingStep }) {
+function VoiceScreen({ typed, listening, onConfirm }) {
   return (
     <section className="screen voice-screen">
       <div className="listening-card">
@@ -299,17 +286,24 @@ function VoiceScreen({ typed, listening, loadingStep }) {
           <Sparkles size={18} />
         </div>
         <div>
-          <h2>Builder Brain is checking</h2>
+          <h2>{listening ? 'Waiting for the job details' : 'Ready to check'}</h2>
           <ul>
             {steps.map((step, index) => (
-              <li className={index <= loadingStep ? 'done' : ''} key={step}>
-                <span>{index < loadingStep ? <Check size={15} /> : index === loadingStep ? <span className="dot" /> : null}</span>
+              <li className={!listening ? 'done' : ''} key={step}>
+                <span>{!listening ? <Check size={15} /> : index === 0 ? <span className="dot" /> : null}</span>
                 {step}
               </li>
             ))}
           </ul>
         </div>
       </div>
+
+      {!listening && (
+        <button className="primary-action" type="button" onClick={onConfirm}>
+          Check this job
+          <ChevronRight size={20} />
+        </button>
+      )}
     </section>
   );
 }
