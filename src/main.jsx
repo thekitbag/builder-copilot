@@ -10,7 +10,6 @@ import {
   Mic,
   PackageCheck,
   PhoneOutgoing,
-  Send,
   Sparkles,
   Store,
   Volume2,
@@ -115,24 +114,7 @@ const VOICE_REVEAL_DELAY = 3200;
 
 function App() {
   const [screen, setScreen] = useState('home');
-  const [typed, setTyped] = useState('');
-  const [listening, setListening] = useState(false);
   const [toast, setToast] = useState('');
-
-  useEffect(() => {
-    if (screen !== 'listen') return;
-    setListening(true);
-    setTyped('');
-
-    const listenTimer = window.setTimeout(() => {
-      setTyped(demoPhrase);
-      setListening(false);
-    }, VOICE_REVEAL_DELAY);
-
-    return () => {
-      window.clearTimeout(listenTimer);
-    };
-  }, [screen]);
 
   useEffect(() => {
     if (!toast) return;
@@ -152,8 +134,8 @@ function App() {
       <PhoneFrame>
         {screen !== 'home' && <TopBar onBack={() => navigate(previousScreen(screen))} onHome={() => navigate('home')} />}
 
-        {screen === 'home' && <HomeScreen typed={typed} setTyped={setTyped} onStart={() => navigate('listen')} />}
-        {screen === 'listen' && <VoiceScreen typed={typed} listening={listening} onConfirm={() => navigate('memory')} />}
+        {screen === 'home' && <HomeScreen onStart={() => navigate('listen')} />}
+        {screen === 'listen' && <VoiceScreen onComplete={() => navigate('memory')} />}
         {screen === 'memory' && <MemoryScreen onNext={() => navigate('suppliers')} />}
         {screen === 'suppliers' && <SuppliersScreen onNext={() => navigate('order')} showToast={showToast} />}
         {screen === 'order' && <OrderScreen showToast={showToast} />}
@@ -203,7 +185,7 @@ function TopBar({ onBack, onHome }) {
   );
 }
 
-function HomeScreen({ typed, setTyped, onStart }) {
+function HomeScreen({ onStart }) {
   return (
     <section className="screen home-screen">
       <div className="hero-block">
@@ -224,20 +206,6 @@ function HomeScreen({ typed, setTyped, onStart }) {
           <small>Try the Weymouth garden room demo</small>
         </span>
       </button>
-
-      <label className="text-fallback">
-        <span>Or type a quick note</span>
-        <div className="input-row">
-          <input
-            value={typed}
-            onChange={(event) => setTyped(event.target.value)}
-            placeholder="e.g. Garden room like Weymouth"
-          />
-          <button type="button" onClick={onStart} aria-label="Send note">
-            <Send size={19} />
-          </button>
-        </div>
-      </label>
 
       <section className="recent-section">
         <div className="section-heading">
@@ -269,7 +237,42 @@ function HomeScreen({ typed, setTyped, onStart }) {
   );
 }
 
-function VoiceScreen({ typed, listening, onConfirm }) {
+function VoiceScreen({ onComplete }) {
+  const [listening, setListening] = useState(true);
+  const [transcript, setTranscript] = useState('');
+  const [checking, setChecking] = useState(false);
+  const [checkingStep, setCheckingStep] = useState(0);
+
+  useEffect(() => {
+    const listenTimer = window.setTimeout(() => {
+      setTranscript(demoPhrase);
+      setListening(false);
+    }, VOICE_REVEAL_DELAY);
+
+    return () => window.clearTimeout(listenTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!checking) return undefined;
+    setCheckingStep(0);
+
+    const stepTimer = window.setInterval(() => {
+      setCheckingStep((current) => {
+        if (current >= steps.length) {
+          window.clearInterval(stepTimer);
+          return current;
+        }
+
+        return current + 1;
+      });
+    }, 900);
+
+    return () => window.clearInterval(stepTimer);
+  }, [checking]);
+
+  const reviewReady = !listening && !checking;
+  const checkingComplete = checking && checkingStep >= steps.length;
+
   return (
     <section className="screen voice-screen">
       <div className="listening-card">
@@ -278,29 +281,51 @@ function VoiceScreen({ typed, listening, onConfirm }) {
         </div>
         <p className="eyebrow">{listening ? 'Listening' : 'Heard this'}</p>
         <h1>{listening ? 'Say it messy.' : 'Garden room, slightly bigger.'}</h1>
-        <p className="transcript">{typed || 'Listening for the job, place, and what you need next...'}</p>
+        {listening ? (
+          <p className="transcript">Listening for the job, place, and what you need next...</p>
+        ) : (
+          <>
+            <label className="transcript-editor">
+              <span>Edit what Builder Brain heard</span>
+              <textarea value={transcript} onChange={(event) => setTranscript(event.target.value)} rows={5} />
+            </label>
+            {reviewReady && (
+              <button className="confirm-action" type="button" onClick={() => setChecking(true)}>
+                Confirm and check
+                <ChevronRight size={20} />
+              </button>
+            )}
+          </>
+        )}
       </div>
 
-      <div className="thinking-card">
-        <div className="mini-loader">
-          <Sparkles size={18} />
-        </div>
-        <div>
-          <h2>{listening ? 'Waiting for the job details' : 'Ready to check'}</h2>
-          <ul>
-            {steps.map((step, index) => (
-              <li className={!listening ? 'done' : ''} key={step}>
-                <span>{!listening ? <Check size={15} /> : index === 0 ? <span className="dot" /> : null}</span>
-                {step}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      {checking && (
+        <div className="thinking-card">
+          <div className="mini-loader">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <h2>{checkingComplete ? 'Ready to show you' : 'Ready to check'}</h2>
+            <ul>
+              {steps.map((step, index) => {
+                const done = index < checkingStep;
+                const active = index === checkingStep && !checkingComplete;
 
-      {!listening && (
-        <button className="primary-action" type="button" onClick={onConfirm}>
-          Check this job
+                return (
+                  <li className={done ? 'done' : active ? 'active' : ''} key={step}>
+                    <span>{done ? <Check size={15} /> : active ? <span className="dot" /> : null}</span>
+                    {step}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {checkingComplete && (
+        <button className="primary-action" type="button" onClick={onComplete}>
+          Show what I found
           <ChevronRight size={20} />
         </button>
       )}
